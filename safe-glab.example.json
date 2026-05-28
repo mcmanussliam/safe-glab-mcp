@@ -1,0 +1,89 @@
+{
+  "gitlab": {
+    "baseUrl": "https://gitlab.example.com",
+    "tokenEnv": "SAFE_GLAB_TOKEN"
+  },
+  "defaults": {
+    "protectedBranches": ["main", "master", "production", "develop", "release/*"],
+    "allowedMergeRequestTargetBranches": ["main", "master", "develop", "release/*"],
+    "maxRepositoryFileBytes": 262144
+  },
+  "projects": [
+    {
+      "path": "platform/api",
+      "permissions": {
+        "branches": {
+          "list": true,
+          "get": true,
+          "create": true
+        },
+        "mergeRequests": {
+          "list": true,
+          "get": true,
+          "create": true,
+          "comment": true
+        },
+        "issues": {
+          "list": true,
+          "get": true,
+          "create": true,
+          "update": true,
+          "delete": false,
+          "comment": true
+        },
+        "metadata": {
+          "labels": true,
+          "milestones": true,
+          "users": true
+        },
+        "pipelines": {
+          "list": true,
+          "get": true,
+          "jobs": true
+        },
+        "repository": {
+          "readFiles": true,
+          "readTree": true
+        }
+      }
+    },
+    {
+      "path": "sandbox/experiments",
+      "permissions": {
+        "branches": {
+          "list": true,
+          "get": true,
+          "create": true
+        },
+        "mergeRequests": {
+          "list": true,
+          "get": true,
+          "create": true,
+          "comment": true
+        },
+        "issues": {
+          "list": true,
+          "get": true,
+          "create": true,
+          "update": true,
+          "delete": true,
+          "comment": true
+        },
+        "metadata": {
+          "labels": true,
+          "milestones": true,
+          "users": true
+        },
+        "pipelines": {
+          "list": true,
+          "get": true,
+          "jobs": true
+        },
+        "repository": {
+          "readFiles": true,
+          "readTree": true
+        }
+      }
+    }
+  ]
+}
