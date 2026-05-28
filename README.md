@@ -1,7 +1,7 @@
-<h1 align="center">safe-glab-mcp</h1>
-<p align="center">
-  Policy-controlled GitLab tools for Claude. Every call is checked against a local config before it reaches your instance.
-</p>
+# Safe Gitlab MCP
+
+GitLab Community Edition has no fine-grained access tokens, your token either has api access or it doesn't.<br>
+This MCP enforces the per-project, per-operation restrictions that your GitLab instance can't.
 
 ## Features
 
@@ -97,6 +97,4 @@ Patterns use glob syntax — `*` matches any sequence of characters.
 
 ---
 
-<p align="center">
-  Please don't let Claude delete the master branch.
-</p>
+Please don't let Claude delete the master branch.
