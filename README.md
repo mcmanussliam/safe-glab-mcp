@@ -21,7 +21,7 @@ This MCP enforces the per-project, per-operation restrictions that your GitLab i
 
 ```bash
 claude plugin marketplace add mcmanussliam/safe-glab-mcp
-claude plugin install safe-glab-mcp@mcmanussliam
+claude plugin install safe-glab-mcp@mcmanussliam-safe-glab-mcp
 ```
 
 2. Set your GitLab token in your shell profile:
