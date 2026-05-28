@@ -1,7 +1,11 @@
 {
   "name": "safe-glab-mcp",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Policy-controlled GitLab MCP server. Exposes GitLab tools to Claude with per-project permission controls.",
   "license": "MIT",
-  "keywords": ["claude-code", "gitlab", "mcp"]
+  "keywords": [
+    "claude-code",
+    "gitlab",
+    "mcp"
+  ]
 }
