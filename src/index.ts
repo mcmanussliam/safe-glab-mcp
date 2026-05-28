@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { copyFileSync, existsSync, mkdirSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig, type SafeGlabConfig } from "./config.js";
@@ -16,6 +18,7 @@ export function createServer(config: SafeGlabConfig, gitlab: GitLabClientContrac
 
 export async function main(argv = process.argv, env = process.env): Promise<void> {
   const configPath = readConfigPath(argv, env);
+  initPluginConfig(configPath, env);
   const config = loadConfig(configPath, env);
   const gitlab = new GitLabClient({
     baseUrl: config.gitlab.baseUrl,
@@ -24,6 +27,28 @@ export async function main(argv = process.argv, env = process.env): Promise<void
 
   const server = createServer(config, gitlab);
   await server.connect(new StdioServerTransport());
+}
+
+function initPluginConfig(configPath: string, env: NodeJS.ProcessEnv): void {
+  if (existsSync(configPath)) {
+    return;
+  }
+
+  const pluginRoot = env.CLAUDE_PLUGIN_ROOT;
+  if (!pluginRoot) {
+    return;
+  }
+
+  const examplePath = join(pluginRoot, "safe-glab.example.json");
+  if (!existsSync(examplePath)) {
+    return;
+  }
+
+  mkdirSync(dirname(configPath), { recursive: true });
+  copyFileSync(examplePath, configPath);
+  process.stderr.write(
+    `safe-glab-mcp: created config at ${configPath} — edit it to add your GitLab instance and projects.\n`,
+  );
 }
 
 function readConfigPath(argv: string[], env: NodeJS.ProcessEnv): string {
