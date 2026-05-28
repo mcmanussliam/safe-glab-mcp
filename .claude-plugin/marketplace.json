@@ -1,0 +1,18 @@
+{
+  "name": "mcmanussliam-safe-glab-mcp",
+  "owner": {
+    "name": "Liam McManus"
+  },
+  "plugins": [
+    {
+      "name": "safe-glab-mcp",
+      "source": {
+        "source": "github",
+        "repo": "mcmanussliam/safe-glab-mcp",
+        "ref": "main"
+      },
+      "description": "GitLab MCP server that enforces per-project, per-operation restrictions that GitLab CE fine-grained tokens can't — protecting branches, allowlisting MR targets, and capping file sizes.",
+      "version": "0.1.0"
+    }
+  ]
+}
