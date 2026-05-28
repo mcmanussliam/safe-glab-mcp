@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "safe-glab": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/index.js", "--config", "${CLAUDE_PLUGIN_DATA}/safe-glab.json"],
+      "env": {
+        "SAFE_GLAB_TOKEN": "${SAFE_GLAB_TOKEN}"
+      }
+    }
+  }
+}
