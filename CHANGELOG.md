@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.1] - 2026-05-28
+
+### Features
+
+- **plugin**: add marketplace.json and improve plugin description
+
 ## [1.0.0] - 2026-05-28
 
 ### Features
