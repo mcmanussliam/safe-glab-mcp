@@ -8,10 +8,11 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "check": "npm run build && npm test && npm run lint",
+    "check": "pnpm build && pnpm test && pnpm lint",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts"
   },
