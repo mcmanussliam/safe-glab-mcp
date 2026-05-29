@@ -97,7 +97,7 @@ const rawConfigSchema = z
       )
       .min(1),
   })
-  .strict();
+  .strip();
 
 export type Permissions = z.infer<typeof permissionsSchema>;
 
