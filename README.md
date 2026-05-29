@@ -1,6 +1,11 @@
-# Safe GitLab MCP
+<p align="center">
+  <img width="480" height="480" alt="47f738d2cb80b7eb624056db581cf76f65b89dd4 (2)" src="https://github.com/user-attachments/assets/8761b79e-529e-4d30-bdc0-889aec012fe5" />
+</p>
 
-GitLab CE has no fine-grained access tokens, your token either has `api` scope or it doesn't. This MCP enforces per-project, per-operation restrictions that your GitLab instance can't.
+<h1 align="center">Safe GitLab MCP</h1>
+<p align="center">
+  GitLab CE has no fine-grained access tokens, your token either has `api` scope or it doesn't. This MCP enforces per-project, per-operation restrictions that your GitLab instance can't.
+</p>
 
 ## Quick Start
 
