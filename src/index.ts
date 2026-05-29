@@ -18,8 +18,10 @@ export function createServer(config: SafeGlabConfig, gitlab: GitLabClientContrac
 
 export async function main(argv = process.argv, env = process.env): Promise<void> {
   const configPath = readConfigPath(argv, env);
+
   initPluginConfig(configPath, env);
   const config = loadConfig(configPath, env);
+
   const gitlab = new GitLabClient({
     baseUrl: config.gitlab.baseUrl,
     token: config.gitlab.token,
@@ -46,9 +48,7 @@ function initPluginConfig(configPath: string, env: NodeJS.ProcessEnv): void {
 
   mkdirSync(dirname(configPath), { recursive: true });
   copyFileSync(examplePath, configPath);
-  process.stderr.write(
-    `safe-glab-mcp: created config at ${configPath} — edit it to add your GitLab instance and projects.\n`,
-  );
+  process.stderr.write(`safe-glab-mcp: created config at ${configPath}, edit it to add your GitLab instance and projects.\n`);
 }
 
 function readConfigPath(argv: string[], env: NodeJS.ProcessEnv): string {
