@@ -8,13 +8,31 @@ if (!["patch", "minor", "major"].includes(type)) {
   process.exit(1);
 }
 
+/**
+ * Bump a given version string given a type of release.
+ *
+ * @param version - Version number, major.minor.patch
+ * @param type - Release type; major, minor, patch.
+ */
 function bump(version, type) {
   const [maj, min, pat] = version.split(".").map(Number);
-  if (type === "major") return `${maj + 1}.0.0`;
-  if (type === "minor") return `${maj}.${min + 1}.0`;
+  if (type === "major") {
+    return `${maj + 1}.0.0`;
+  }
+
+  if (type === "minor") {
+    return `${maj}.${min + 1}.0`;
+  }
+
   return `${maj}.${min}.${pat + 1}`;
 }
 
+/**
+ * Execute the given fn on the json file and write the change.
+ *
+ * @param path - Path to the json file to edit
+ * @param fn - Function to execute on the json
+ */
 function updateJson(path, fn) {
   const data = JSON.parse(readFileSync(path, "utf8"));
   fn(data);
