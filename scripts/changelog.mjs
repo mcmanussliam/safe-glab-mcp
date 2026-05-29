@@ -54,9 +54,9 @@ function generateContentFromCommits(commits) {
     commitsBySection[type].push(`- ${label}`);
   }
 
-  const formattedSections = Object.entries(commitsBySection).reduce((formatted, [title, list]) => {
+  const formattedSections = Object.entries(commitsBySection).reduce((formatted, [section, list]) => {
     if (list.length > 0) {
-      formatted.push(`### ${title}\n\n${list.join("\n")}`);
+      formatted.push(`### ${SECTIONS[section]}\n\n${list.join("\n")}`);
     }
 
     return formatted;
