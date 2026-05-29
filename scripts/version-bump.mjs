@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync } from "node:fs";
+import { execSync } from "node:child_process";
 
 const type = process.argv[2];
 
@@ -37,6 +38,7 @@ function updateJson(path, fn) {
   const data = JSON.parse(readFileSync(path, "utf8"));
   fn(data);
   writeFileSync(path, `${JSON.stringify(data, null, 2)}\n`);
+  execSync(`pnpm biome format --write ${path}`, { stdio: "inherit" });
 }
 
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
