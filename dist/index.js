@@ -7362,8 +7362,8 @@ var StdioServerTransport = class {
 };
 
 // src/config.ts
+import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { Entry } from "@napi-rs/keyring";
 var booleanFlag = external_exports.boolean();
 var permissionsSchema = external_exports.object({
   branches: external_exports.object({
@@ -7431,13 +7431,15 @@ var rawConfigSchema = external_exports.object({
       permissions: permissionsSchema
     }).strict()
   ).min(1)
-}).strict();
+}).strip();
 async function loadConfig(path, env = process.env) {
   const raw = JSON.parse(readFileSync(path, "utf8"));
   const parsed = rawConfigSchema.parse(raw);
   let token = null;
   try {
-    token = new Entry("safe-glab", parsed.gitlab.tokenKey).getPassword();
+    token = execSync(`security find-generic-password -s safe-glab -a ${parsed.gitlab.tokenKey} -w`, {
+      stdio: ["pipe", "pipe", "pipe"]
+    }).toString().trim();
   } catch {
   }
   if (!token) {
