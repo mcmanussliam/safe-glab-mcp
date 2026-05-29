@@ -1,60 +1,83 @@
 #!/usr/bin/env node
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 
-const pkg = JSON.parse(readFileSync("package.json", "utf8"));
-const version = pkg.version;
-const date = new Date().toISOString().slice(0, 10);
+/** Pattern for matching specific sections of a commit */
+const COMMIT_PATTERN = /^(\w+)(\([^)]+\))?!?: (.+)$/;
 
-let lastTag = "";
-try {
-  lastTag = execSync('git describe --tags --abbrev=0 --match "safe-glab-mcp--v*"', {
-    encoding: "utf8",
-    stdio: ["pipe", "pipe", "ignore"],
-  }).trim();
-} catch {}
+const SECTIONS = {
+  feat: "Features",
+  fix: "Bug Fixes",
+  perf: "Performance",
+  refactor: "Refactors",
+  docs: "Documentation",
+  chore: "Chores",
+};
 
-const range = lastTag ? `${lastTag}..HEAD` : "";
+/**
+ * Finds the last tag through git and returns the range of that tag till the head.
+ *
+ * @returns `${tag}..HEAD` or '' if no tag is found
+ */
+function getRangeFromLastTag() {
+  let lastTag = "";
+
+  try {
+    const opts = { encoding: "utf8", stdio: ["pipe", "pipe", "ignore"] };
+    lastTag = execSync('git describe --tags --abbrev=0 --match "safe-glab-mcp--v*"', opts).trim();
+  } catch {}
+
+  return lastTag ? `${lastTag}..HEAD` : "";
+}
+
+/**
+ * Join and format a given list of commits, validate the commit prefix against the set ones in `SECTIONS`.
+ *
+ * @param commits - List of commit messages
+ * @returns Formatted md string of all commits
+ */
+function generateContentFromCommits(commits) {
+  const commitsBySection = Object.fromEntries(Object.keys(SECTIONS).map((k) => [k, []]));
+
+  for (const line of commits) {
+    const match = line.match(COMMIT_PATTERN);
+    if (!match) {
+      continue;
+    }
+
+    const [, type, scope, desc] = match;
+    if (!commitsBySection[type]) {
+      continue;
+    }
+
+    const label = scope ? `**${scope.slice(1, -1)}**: ${desc}` : desc;
+    commitsBySection[type].push(`- ${label}`);
+  }
+
+  const formattedSections = Object.entries(commitsBySection).reduce((formatted, [title, list]) => {
+    if (list.length > 0) {
+      formatted.push(`### ${title}\n\n${list.join("\n")}`);
+    }
+
+    return formatted;
+  }, []);
+
+  return formattedSections.join("\n\n");
+}
+
+const range = getRangeFromLastTag();
 const raw = execSync(`git log ${range} --pretty=format:"%s"`.trim(), { encoding: "utf8" }).trim();
 const commits = raw ? raw.split("\n") : [];
 
-const sections = {
-  feat: { title: "Features", items: [] },
-  fix: { title: "Bug Fixes", items: [] },
-  perf: { title: "Performance", items: [] },
-  refactor: { title: "Refactors", items: [] },
-  docs: { title: "Documentation", items: [] },
-  chore: { title: "Chores", items: [] },
-};
-
-const pattern = /^(\w+)(\([^)]+\))?!?: (.+)$/;
-
-for (const line of commits) {
-  const match = line.match(pattern);
-  if (!match) continue;
-  const [, type, scope, desc] = match;
-  if (!sections[type]) continue;
-  const label = scope ? `**${scope.slice(1, -1)}**: ${desc}` : desc;
-  sections[type].items.push(`- ${label}`);
-}
-
-const content = Object.values(sections)
-  .filter((s) => s.items.length > 0)
-  .map((s) => `### ${s.title}\n\n${s.items.join("\n")}`)
-  .join("\n\n");
-
+const content = generateContentFromCommits(commits);
 if (!content) {
   process.exit(0);
 }
 
+const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+const version = pkg.version;
+
+const date = new Date().toISOString().slice(0, 10);
+
 const entry = `## [${version}] - ${date}\n\n${content}`;
-
-// stdout — captured by the release workflow as release notes
 process.stdout.write(`${entry}\n`);
-
-// Prepend to CHANGELOG.md
-const changelogPath = "CHANGELOG.md";
-const header = "# Changelog\n\n";
-const existing = existsSync(changelogPath) ? readFileSync(changelogPath, "utf8") : "";
-const rest = existing.startsWith(header) ? existing.slice(header.length) : existing;
-writeFileSync(changelogPath, `${`${header}${entry}\n\n${rest}`.trimEnd()}\n`);
