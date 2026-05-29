@@ -7,7 +7,6 @@ import type {
   GitLabRepositoryFile,
   IssueInput,
 } from "./gitlab/types.js";
-import { encodeGitLabProjectPath } from "./util/encode-gitlab-project-path.js";
 import { redactSecret } from "./util/redaction.js";
 
 const gitLabRepositoryFileResponseSchema = z.object({
@@ -55,72 +54,72 @@ export class GitLabClient implements GitLabClientContract {
   }
 
   getProject(projectPath: string): Promise<unknown> {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath)}`);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath)}`);
   }
 
   listBranches(projectPath: string, query: GitLabQuery = {}): Promise<unknown> {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath)}/repository/branches`, query);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath)}/repository/branches`, query);
   }
 
   getBranch(projectPath: string, branch: string): Promise<unknown> {
     return this.request(
       "GET",
-      `/projects/${encodeGitLabProjectPath(projectPath)}/repository/branches/${encodeURIComponent(branch)}`,
+      `/projects/${encodeURIComponent(projectPath)}/repository/branches/${encodeURIComponent(branch)}`,
     );
   }
 
   createBranch(projectPath: string, branch: string, ref: string): Promise<unknown> {
-    return this.request("POST", `/projects/${encodeGitLabProjectPath(projectPath)}/repository/branches`, {
+    return this.request("POST", `/projects/${encodeURIComponent(projectPath)}/repository/branches`, {
       branch,
       ref,
     });
   }
 
   listMergeRequests(projectPath: string, query: GitLabQuery = {}): Promise<unknown> {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath)}/merge_requests`, query);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath)}/merge_requests`, query);
   }
 
   getMergeRequest(projectPath: string, mergeRequestIid: number): Promise<unknown> {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath)}/merge_requests/${mergeRequestIid}`);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath)}/merge_requests/${mergeRequestIid}`);
   }
 
   createMergeRequest(projectPath: string, body: CreateMergeRequestInput): Promise<unknown> {
-    return this.request("POST", `/projects/${encodeGitLabProjectPath(projectPath)}/merge_requests`, undefined, body);
+    return this.request("POST", `/projects/${encodeURIComponent(projectPath)}/merge_requests`, undefined, body);
   }
 
   commentOnMergeRequest(projectPath: string, mergeRequestIid: number, body: string): Promise<unknown> {
     return this.request(
       "POST",
-      `/projects/${encodeGitLabProjectPath(projectPath)}/merge_requests/${mergeRequestIid}/notes`,
+      `/projects/${encodeURIComponent(projectPath)}/merge_requests/${mergeRequestIid}/notes`,
       undefined,
       { body },
     );
   }
 
   listIssues(projectPath: string, query: GitLabQuery = {}): Promise<unknown> {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath)}/issues`, query);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath)}/issues`, query);
   }
 
   getIssue(projectPath: string, issueIid: number): Promise<unknown> {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath)}/issues/${issueIid}`);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath)}/issues/${issueIid}`);
   }
 
   createIssue(projectPath: string, body: IssueInput): Promise<unknown> {
-    return this.request("POST", `/projects/${encodeGitLabProjectPath(projectPath)}/issues`, undefined, body);
+    return this.request("POST", `/projects/${encodeURIComponent(projectPath)}/issues`, undefined, body);
   }
 
   updateIssue(projectPath: string, issueIid: number, body: IssueInput): Promise<unknown> {
-    return this.request("PUT", `/projects/${encodeGitLabProjectPath(projectPath)}/issues/${issueIid}`, undefined, body);
+    return this.request("PUT", `/projects/${encodeURIComponent(projectPath)}/issues/${issueIid}`, undefined, body);
   }
 
   deleteIssue(projectPath: string, issueIid: number): Promise<unknown> {
-    return this.request("DELETE", `/projects/${encodeGitLabProjectPath(projectPath)}/issues/${issueIid}`);
+    return this.request("DELETE", `/projects/${encodeURIComponent(projectPath)}/issues/${issueIid}`);
   }
 
   commentOnIssue(projectPath: string, issueIid: number, body: string): Promise<unknown> {
     return this.request(
       "POST",
-      `/projects/${encodeGitLabProjectPath(projectPath)}/issues/${issueIid}/notes`,
+      `/projects/${encodeURIComponent(projectPath)}/issues/${issueIid}/notes`,
       undefined,
       {
         body,
@@ -129,33 +128,33 @@ export class GitLabClient implements GitLabClientContract {
   }
 
   listProjectLabels(projectPath: string): Promise<unknown> {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath)}/labels`);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath)}/labels`);
   }
 
   listMilestones(projectPath: string): Promise<unknown> {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath)}/milestones`);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath)}/milestones`);
   }
 
   listProjectUsers(projectPath: string): Promise<unknown> {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath)}/users`);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath)}/users`);
   }
 
   listPipelines(projectPath: string, query: GitLabQuery = {}): Promise<unknown> {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath)}/pipelines`, query);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath)}/pipelines`, query);
   }
 
   getPipeline(projectPath: string, pipelineId: number): Promise<unknown> {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath)}/pipelines/${pipelineId}`);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath)}/pipelines/${pipelineId}`);
   }
 
   listPipelineJobs(projectPath: string, pipelineId: number): Promise<unknown> {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath)}/pipelines/${pipelineId}/jobs`);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath)}/pipelines/${pipelineId}/jobs`);
   }
 
   async getRepositoryFile(projectPath: string, filePath: string, ref: string): Promise<GitLabRepositoryFile> {
     const raw = await this.request(
       "GET",
-      `/projects/${encodeGitLabProjectPath(projectPath)}/repository/files/${encodeURIComponent(filePath)}`,
+      `/projects/${encodeURIComponent(projectPath)}/repository/files/${encodeURIComponent(filePath)}`,
       { ref },
     );
     const response = gitLabRepositoryFileResponseSchema.parse(raw);
@@ -169,7 +168,7 @@ export class GitLabClient implements GitLabClientContract {
   }
 
   listRepositoryTree(projectPath: string, query: GitLabQuery = {}): Promise<unknown> {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath)}/repository/tree`, query);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath)}/repository/tree`, query);
   }
 
   private async request(
