@@ -70,8 +70,8 @@
                 "required": ["list", "get", "create"],
                 "additionalProperties": false,
                 "properties": {
-                  "list":   { "type": "boolean" },
-                  "get":    { "type": "boolean" },
+                  "list": { "type": "boolean" },
+                  "get": { "type": "boolean" },
                   "create": { "type": "boolean" }
                 }
               },
@@ -80,9 +80,9 @@
                 "required": ["list", "get", "create", "comment"],
                 "additionalProperties": false,
                 "properties": {
-                  "list":    { "type": "boolean" },
-                  "get":     { "type": "boolean" },
-                  "create":  { "type": "boolean" },
+                  "list": { "type": "boolean" },
+                  "get": { "type": "boolean" },
+                  "create": { "type": "boolean" },
                   "comment": { "type": "boolean" }
                 }
               },
@@ -91,11 +91,11 @@
                 "required": ["list", "get", "create", "update", "delete", "comment"],
                 "additionalProperties": false,
                 "properties": {
-                  "list":    { "type": "boolean" },
-                  "get":     { "type": "boolean" },
-                  "create":  { "type": "boolean" },
-                  "update":  { "type": "boolean" },
-                  "delete":  { "type": "boolean" },
+                  "list": { "type": "boolean" },
+                  "get": { "type": "boolean" },
+                  "create": { "type": "boolean" },
+                  "update": { "type": "boolean" },
+                  "delete": { "type": "boolean" },
                   "comment": { "type": "boolean" }
                 }
               },
@@ -104,9 +104,9 @@
                 "required": ["labels", "milestones", "users"],
                 "additionalProperties": false,
                 "properties": {
-                  "labels":     { "type": "boolean" },
+                  "labels": { "type": "boolean" },
                   "milestones": { "type": "boolean" },
-                  "users":      { "type": "boolean" }
+                  "users": { "type": "boolean" }
                 }
               },
               "pipelines": {
@@ -115,7 +115,7 @@
                 "additionalProperties": false,
                 "properties": {
                   "list": { "type": "boolean" },
-                  "get":  { "type": "boolean" },
+                  "get": { "type": "boolean" },
                   "jobs": { "type": "boolean" }
                 }
               },
@@ -125,7 +125,7 @@
                 "additionalProperties": false,
                 "properties": {
                   "readFiles": { "type": "boolean" },
-                  "readTree":  { "type": "boolean" }
+                  "readTree": { "type": "boolean" }
                 }
               }
             }
