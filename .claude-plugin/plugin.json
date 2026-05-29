@@ -1,7 +1,11 @@
 {
   "name": "safe-glab-mcp",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "GitLab MCP server that enforces per-project, per-operation restrictions that GitLab CE fine-grained tokens can't — protecting branches, allowlisting MR targets, and capping file sizes.",
   "license": "MIT",
-  "keywords": ["claude-code", "gitlab", "mcp"]
+  "keywords": [
+    "claude-code",
+    "gitlab",
+    "mcp"
+  ]
 }

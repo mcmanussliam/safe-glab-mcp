@@ -7363,6 +7363,7 @@ var StdioServerTransport = class {
 
 // src/config.ts
 import { readFileSync } from "node:fs";
+import { Entry } from "@napi-rs/keyring";
 var booleanFlag = external_exports.boolean();
 var permissionsSchema = external_exports.object({
   branches: external_exports.object({
@@ -7417,7 +7418,7 @@ var projectPathSchema = external_exports.string().superRefine((value, ctx) => {
 var rawConfigSchema = external_exports.object({
   gitlab: external_exports.object({
     baseUrl: external_exports.string().url(),
-    tokenEnv: external_exports.string().min(1)
+    tokenKey: external_exports.string().min(1)
   }).strict(),
   defaults: external_exports.object({
     protectedBranches: external_exports.array(external_exports.string().min(1)).min(1),
@@ -7431,12 +7432,21 @@ var rawConfigSchema = external_exports.object({
     }).strict()
   ).min(1)
 }).strict();
-function loadConfig(path, env = process.env) {
+async function loadConfig(path, env = process.env) {
   const raw = JSON.parse(readFileSync(path, "utf8"));
   const parsed = rawConfigSchema.parse(raw);
-  const token = env[parsed.gitlab.tokenEnv];
+  let token = null;
+  try {
+    token = new Entry("safe-glab", parsed.gitlab.tokenKey).getPassword();
+  } catch {
+  }
   if (!token) {
-    throw new Error(`Environment variable ${parsed.gitlab.tokenEnv} is required`);
+    token = env[parsed.gitlab.tokenKey];
+  }
+  if (!token) {
+    throw new Error(
+      `No token found for "${parsed.gitlab.tokenKey}". Add it to the OS keychain \`security add-generic-password -s safe-glab -a ${parsed.gitlab.tokenKey} -w <token>\`, or set the environment variable ${parsed.gitlab.tokenKey}.`
+    );
   }
   return {
     ...parsed,
@@ -7445,11 +7455,6 @@ function loadConfig(path, env = process.env) {
       token
     }
   };
-}
-
-// src/util/encode-gitlab-project-path.ts
-function encodeGitLabProjectPath(projectPath2) {
-  return encodeURIComponent(projectPath2);
 }
 
 // src/util/redaction.ts
@@ -7484,87 +7489,82 @@ var GitLabClient = class {
     this.fetchImpl = options.fetch ?? fetch;
   }
   getProject(projectPath2) {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath2)}`);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}`);
   }
   listBranches(projectPath2, query = {}) {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath2)}/repository/branches`, query);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/repository/branches`, query);
   }
   getBranch(projectPath2, branch) {
     return this.request(
       "GET",
-      `/projects/${encodeGitLabProjectPath(projectPath2)}/repository/branches/${encodeURIComponent(branch)}`
+      `/projects/${encodeURIComponent(projectPath2)}/repository/branches/${encodeURIComponent(branch)}`
     );
   }
   createBranch(projectPath2, branch, ref) {
-    return this.request("POST", `/projects/${encodeGitLabProjectPath(projectPath2)}/repository/branches`, {
+    return this.request("POST", `/projects/${encodeURIComponent(projectPath2)}/repository/branches`, {
       branch,
       ref
     });
   }
   listMergeRequests(projectPath2, query = {}) {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath2)}/merge_requests`, query);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/merge_requests`, query);
   }
   getMergeRequest(projectPath2, mergeRequestIid) {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath2)}/merge_requests/${mergeRequestIid}`);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/merge_requests/${mergeRequestIid}`);
   }
   createMergeRequest(projectPath2, body) {
-    return this.request("POST", `/projects/${encodeGitLabProjectPath(projectPath2)}/merge_requests`, void 0, body);
+    return this.request("POST", `/projects/${encodeURIComponent(projectPath2)}/merge_requests`, void 0, body);
   }
   commentOnMergeRequest(projectPath2, mergeRequestIid, body) {
     return this.request(
       "POST",
-      `/projects/${encodeGitLabProjectPath(projectPath2)}/merge_requests/${mergeRequestIid}/notes`,
+      `/projects/${encodeURIComponent(projectPath2)}/merge_requests/${mergeRequestIid}/notes`,
       void 0,
       { body }
     );
   }
   listIssues(projectPath2, query = {}) {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath2)}/issues`, query);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/issues`, query);
   }
   getIssue(projectPath2, issueIid) {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath2)}/issues/${issueIid}`);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/issues/${issueIid}`);
   }
   createIssue(projectPath2, body) {
-    return this.request("POST", `/projects/${encodeGitLabProjectPath(projectPath2)}/issues`, void 0, body);
+    return this.request("POST", `/projects/${encodeURIComponent(projectPath2)}/issues`, void 0, body);
   }
   updateIssue(projectPath2, issueIid, body) {
-    return this.request("PUT", `/projects/${encodeGitLabProjectPath(projectPath2)}/issues/${issueIid}`, void 0, body);
+    return this.request("PUT", `/projects/${encodeURIComponent(projectPath2)}/issues/${issueIid}`, void 0, body);
   }
   deleteIssue(projectPath2, issueIid) {
-    return this.request("DELETE", `/projects/${encodeGitLabProjectPath(projectPath2)}/issues/${issueIid}`);
+    return this.request("DELETE", `/projects/${encodeURIComponent(projectPath2)}/issues/${issueIid}`);
   }
   commentOnIssue(projectPath2, issueIid, body) {
-    return this.request(
-      "POST",
-      `/projects/${encodeGitLabProjectPath(projectPath2)}/issues/${issueIid}/notes`,
-      void 0,
-      {
-        body
-      }
-    );
+    return this.request("POST", `/projects/${encodeURIComponent(projectPath2)}/issues/${issueIid}/notes`, void 0, {
+      body
+    });
   }
   listProjectLabels(projectPath2) {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath2)}/labels`);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/labels`);
   }
   listMilestones(projectPath2) {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath2)}/milestones`);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/milestones`);
   }
   listProjectUsers(projectPath2) {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath2)}/users`);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/users`);
   }
   listPipelines(projectPath2, query = {}) {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath2)}/pipelines`, query);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/pipelines`, query);
   }
   getPipeline(projectPath2, pipelineId) {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath2)}/pipelines/${pipelineId}`);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/pipelines/${pipelineId}`);
   }
   listPipelineJobs(projectPath2, pipelineId) {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath2)}/pipelines/${pipelineId}/jobs`);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/pipelines/${pipelineId}/jobs`);
   }
   async getRepositoryFile(projectPath2, filePath, ref) {
     const raw = await this.request(
       "GET",
-      `/projects/${encodeGitLabProjectPath(projectPath2)}/repository/files/${encodeURIComponent(filePath)}`,
+      `/projects/${encodeURIComponent(projectPath2)}/repository/files/${encodeURIComponent(filePath)}`,
       { ref }
     );
     const response = gitLabRepositoryFileResponseSchema.parse(raw);
@@ -7576,7 +7576,7 @@ var GitLabClient = class {
     };
   }
   listRepositoryTree(projectPath2, query = {}) {
-    return this.request("GET", `/projects/${encodeGitLabProjectPath(projectPath2)}/repository/tree`, query);
+    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/repository/tree`, query);
   }
   async request(method, path, query, body) {
     const url = new URL(`${this.baseUrl}/api/v4${path}`);
@@ -8018,7 +8018,7 @@ function createServer(config, gitlab) {
 async function main(argv = process.argv, env = process.env) {
   const configPath = readConfigPath(argv, env);
   initPluginConfig(configPath, env);
-  const config = loadConfig(configPath, env);
+  const config = await loadConfig(configPath, env);
   const gitlab = new GitLabClient({
     baseUrl: config.gitlab.baseUrl,
     token: config.gitlab.token
@@ -8041,7 +8041,7 @@ function initPluginConfig(configPath, env) {
   mkdirSync(dirname(configPath), { recursive: true });
   copyFileSync(examplePath, configPath);
   process.stderr.write(
-    `safe-glab-mcp: created config at ${configPath} \u2014 edit it to add your GitLab instance and projects.
+    `safe-glab-mcp: created config at ${configPath}, edit it to add your GitLab instance and projects.
 `
   );
 }
