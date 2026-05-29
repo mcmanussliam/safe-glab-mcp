@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { describe, expect, test, vi } from "vitest";
 import { loadConfig } from "../src/config.js";
 
-vi.mock("@napi-rs/keyring", () => ({
-  Entry: vi.fn().mockImplementation(() => ({ getPassword: () => null })),
+vi.mock("node:child_process", () => ({
+  execSync: vi.fn().mockImplementation(() => { throw new Error("mock: no keychain entry"); }),
 }));
 
 function writeConfig(contents: unknown): string {

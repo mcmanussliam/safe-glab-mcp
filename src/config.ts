@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { Entry } from "@napi-rs/keyring";
+import { execSync } from "node:child_process";
 import { z } from "zod";
 
 const booleanFlag = z.boolean();
@@ -133,9 +133,11 @@ export async function loadConfig(path: string, env: NodeJS.ProcessEnv = process.
   let token: string | null | undefined = null;
 
   try {
-    token = new Entry("safe-glab", parsed.gitlab.tokenKey).getPassword();
+    token = execSync(`security find-generic-password -s safe-glab -a ${parsed.gitlab.tokenKey} -w`, { stdio: ["pipe", "pipe", "pipe"] })
+      .toString()
+      .trim();
   } catch {
-    // keychain unavailable, fall through to env var
+    // keychain unavailable or entry not found, fall through to env var
   }
 
   if (!token) {
