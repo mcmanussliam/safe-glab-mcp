@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/mcmanussliam/safe-glab-mcp/main/safe-glab.schema.json",
   "gitlab": {
     "baseUrl": "https://gitlab.example.com",
     "tokenKey": "SAFE_GLAB_TOKEN"
