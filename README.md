@@ -4,7 +4,7 @@
 
 <h1 align="center">Safe GitLab MCP</h1>
 <p align="center">
-  GitLab CE has no fine-grained access tokens, your token either has `api` scope or it doesn't. This MCP enforces per-project, per-operation restrictions that your GitLab instance can't.
+  GitLab CE has no fine-grained access tokens; your token either has <code>api</code> scope or it doesn't. This Claude plugin enforces per-project, per-operation restrictions that your GitLab instance can't.
 </p>
 
 ## Quick Start
