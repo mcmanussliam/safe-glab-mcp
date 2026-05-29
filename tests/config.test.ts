@@ -1,8 +1,12 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { loadConfig } from "../src/config.js";
+
+vi.mock("@napi-rs/keyring", () => ({
+  Entry: vi.fn().mockImplementation(() => ({ getPassword: () => null })),
+}));
 
 function writeConfig(contents: unknown): string {
   const dir = mkdtempSync(join(tmpdir(), "safe-glab-config-"));
@@ -14,7 +18,7 @@ function writeConfig(contents: unknown): string {
 const validConfig = {
   gitlab: {
     baseUrl: "https://gitlab.example.com",
-    tokenEnv: "SAFE_GLAB_TOKEN",
+    tokenKey: "SAFE_GLAB_TOKEN",
   },
   defaults: {
     protectedBranches: ["main", "release/*"],
@@ -37,9 +41,9 @@ const validConfig = {
 };
 
 describe("loadConfig", () => {
-  test("loads valid JSON config and resolves the token from the configured environment variable", () => {
+  test("loads valid JSON config and resolves the token from the environment variable fallback", async () => {
     const path = writeConfig(validConfig);
-    const config = loadConfig(path, { SAFE_GLAB_TOKEN: "secret-token" });
+    const config = await loadConfig(path, { SAFE_GLAB_TOKEN: "secret-token" });
 
     expect(config.gitlab.baseUrl).toBe("https://gitlab.example.com");
     expect(config.gitlab.token).toBe("secret-token");
@@ -47,24 +51,24 @@ describe("loadConfig", () => {
     expect(config.projects[0]?.permissions.issues.delete).toBe(false);
   });
 
-  test("rejects config when the configured token environment variable is missing", () => {
+  test("rejects config when no keychain entry and no environment variable is set", async () => {
     const path = writeConfig(validConfig);
 
-    expect(() => loadConfig(path, {})).toThrow("Environment variable SAFE_GLAB_TOKEN is required");
+    await expect(loadConfig(path, {})).rejects.toThrow('No token found for "SAFE_GLAB_TOKEN"');
   });
 
-  test("rejects numeric project identifiers because config must use project paths", () => {
+  test("rejects numeric project identifiers because config must use project paths", async () => {
     const path = writeConfig({
       ...validConfig,
       projects: [{ ...validConfig.projects[0], path: "12345" }],
     });
 
-    expect(() => loadConfig(path, { SAFE_GLAB_TOKEN: "secret-token" })).toThrow(
+    await expect(loadConfig(path, { SAFE_GLAB_TOKEN: "secret-token" })).rejects.toThrow(
       "Project path must be a namespace/project path, not a numeric ID",
     );
   });
 
-  test("rejects unknown permission keys", () => {
+  test("rejects unknown permission keys", async () => {
     const path = writeConfig({
       ...validConfig,
       projects: [
@@ -78,6 +82,6 @@ describe("loadConfig", () => {
       ],
     });
 
-    expect(() => loadConfig(path, { SAFE_GLAB_TOKEN: "secret-token" })).toThrow();
+    await expect(loadConfig(path, { SAFE_GLAB_TOKEN: "secret-token" })).rejects.toThrow();
   });
 });

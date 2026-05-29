@@ -117,14 +117,9 @@ export class GitLabClient implements GitLabClientContract {
   }
 
   commentOnIssue(projectPath: string, issueIid: number, body: string): Promise<unknown> {
-    return this.request(
-      "POST",
-      `/projects/${encodeURIComponent(projectPath)}/issues/${issueIid}/notes`,
-      undefined,
-      {
-        body,
-      },
-    );
+    return this.request("POST", `/projects/${encodeURIComponent(projectPath)}/issues/${issueIid}/notes`, undefined, {
+      body,
+    });
   }
 
   listProjectLabels(projectPath: string): Promise<unknown> {

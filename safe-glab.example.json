@@ -1,7 +1,7 @@
 {
   "gitlab": {
     "baseUrl": "https://gitlab.example.com",
-    "tokenEnv": "SAFE_GLAB_TOKEN"
+    "tokenKey": "SAFE_GLAB_TOKEN"
   },
   "defaults": {
     "protectedBranches": ["main", "master", "production", "develop", "release/*"],
