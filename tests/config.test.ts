@@ -5,7 +5,9 @@ import { describe, expect, test, vi } from "vitest";
 import { loadConfig } from "../src/config.js";
 
 vi.mock("node:child_process", () => ({
-  execSync: vi.fn().mockImplementation(() => { throw new Error("mock: no keychain entry"); }),
+  execSync: vi.fn().mockImplementation(() => {
+    throw new Error("mock: no keychain entry");
+  }),
 }));
 
 function writeConfig(contents: unknown): string {
