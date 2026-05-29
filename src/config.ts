@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { Entry } from "@napi-rs/keyring";
 import { z } from "zod";
 
 const booleanFlag = z.boolean();
@@ -75,7 +76,7 @@ const rawConfigSchema = z
     gitlab: z
       .object({
         baseUrl: z.string().url(),
-        tokenEnv: z.string().min(1),
+        tokenKey: z.string().min(1),
       })
       .strict(),
     defaults: z
@@ -108,7 +109,7 @@ export type ProjectConfig = {
 export type SafeGlabConfig = {
   gitlab: {
     baseUrl: string;
-    tokenEnv: string;
+    tokenKey: string;
     token: string;
   };
   defaults: {
@@ -122,16 +123,29 @@ export type SafeGlabConfig = {
 /**
  * Loads policy config while keeping the GitLab token out of the JSON file.
  *
- * The config stores the environment variable name in `gitlab.tokenEnv`; this
- * function resolves that variable and returns the token only in memory.
+ * Attempts to resolve key from OS keychain then falls back to `.env` in the
+ * case the keychain cannot be accessed.
  */
-export function loadConfig(path: string, env: NodeJS.ProcessEnv = process.env): SafeGlabConfig {
+export async function loadConfig(path: string, env: NodeJS.ProcessEnv = process.env): Promise<SafeGlabConfig> {
   const raw = JSON.parse(readFileSync(path, "utf8")) as unknown;
   const parsed = rawConfigSchema.parse(raw);
-  const token = env[parsed.gitlab.tokenEnv];
+
+  let token: string | null | undefined = null;
+
+  try {
+    token = new Entry("safe-glab", parsed.gitlab.tokenKey).getPassword();
+  } catch {
+    // keychain unavailable, fall through to env var
+  }
 
   if (!token) {
-    throw new Error(`Environment variable ${parsed.gitlab.tokenEnv} is required`);
+    token = env[parsed.gitlab.tokenKey];
+  }
+
+  if (!token) {
+    throw new Error(
+      `No token found for "${parsed.gitlab.tokenKey}". Add it to the OS keychain \`security add-generic-password -s safe-glab -a ${parsed.gitlab.tokenKey} -w <token>\`, or set the environment variable ${parsed.gitlab.tokenKey}.`,
+    );
   }
 
   return {
