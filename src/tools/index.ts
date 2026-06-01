@@ -2,6 +2,7 @@ import type { SafeGlabConfig } from "../config.js";
 import type { GitLabRequest } from "../gitlab/request.js";
 import type { ToolDefinition } from "../mcp.js";
 import { createBranchTools } from "./branches.js";
+import { createCommentTools } from "./comments.js";
 import { createIssueTools } from "./issues.js";
 import { createMergeRequestTools } from "./merge-requests.js";
 import { createMetadataTools } from "./metadata.js";
@@ -20,6 +21,7 @@ export function createSafeGlabTools(config: SafeGlabConfig, request: GitLabReque
   const context = { config, request };
   return [
     ...createBranchTools(context),
+    ...createCommentTools(context),
     ...createMergeRequestTools(context),
     ...createIssueTools(context),
     ...createMetadataTools(context),
