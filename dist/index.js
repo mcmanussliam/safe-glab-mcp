@@ -7362,8 +7362,8 @@ var StdioServerTransport = class {
 };
 
 // src/config.ts
+import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { Entry } from "@napi-rs/keyring";
 var booleanFlag = external_exports.boolean();
 var permissionsSchema = external_exports.object({
   branches: external_exports.object({
@@ -7431,13 +7431,15 @@ var rawConfigSchema = external_exports.object({
       permissions: permissionsSchema
     }).strict()
   ).min(1)
-}).strict();
+}).strip();
 async function loadConfig(path, env = process.env) {
   const raw = JSON.parse(readFileSync(path, "utf8"));
   const parsed = rawConfigSchema.parse(raw);
   let token = null;
   try {
-    token = new Entry("safe-glab", parsed.gitlab.tokenKey).getPassword();
+    token = execSync(`security find-generic-password -s safe-glab -a ${parsed.gitlab.tokenKey} -w`, {
+      stdio: ["pipe", "pipe", "pipe"]
+    }).toString().trim();
   } catch {
   }
   if (!token) {
@@ -7466,130 +7468,27 @@ function redactSecret(value, secret) {
   return value.split(secret).join(REDACTED);
 }
 
-// src/gitlab.ts
-var gitLabRepositoryFileResponseSchema = external_exports.object({
-  file_name: external_exports.string(),
-  file_path: external_exports.string(),
-  content: external_exports.string(),
-  size: external_exports.number()
-});
+// src/gitlab/request.ts
 var GitLabNotFoundError = class extends Error {
   constructor(message) {
     super(message);
     this.name = "GitLabNotFoundError";
   }
 };
-var GitLabClient = class {
-  baseUrl;
-  token;
-  fetchImpl;
-  constructor(options) {
-    this.baseUrl = options.baseUrl.replace(/\/+$/, "");
-    this.token = options.token;
-    this.fetchImpl = options.fetch ?? fetch;
-  }
-  getProject(projectPath2) {
-    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}`);
-  }
-  listBranches(projectPath2, query = {}) {
-    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/repository/branches`, query);
-  }
-  getBranch(projectPath2, branch) {
-    return this.request(
-      "GET",
-      `/projects/${encodeURIComponent(projectPath2)}/repository/branches/${encodeURIComponent(branch)}`
-    );
-  }
-  createBranch(projectPath2, branch, ref) {
-    return this.request("POST", `/projects/${encodeURIComponent(projectPath2)}/repository/branches`, {
-      branch,
-      ref
-    });
-  }
-  listMergeRequests(projectPath2, query = {}) {
-    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/merge_requests`, query);
-  }
-  getMergeRequest(projectPath2, mergeRequestIid) {
-    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/merge_requests/${mergeRequestIid}`);
-  }
-  createMergeRequest(projectPath2, body) {
-    return this.request("POST", `/projects/${encodeURIComponent(projectPath2)}/merge_requests`, void 0, body);
-  }
-  commentOnMergeRequest(projectPath2, mergeRequestIid, body) {
-    return this.request(
-      "POST",
-      `/projects/${encodeURIComponent(projectPath2)}/merge_requests/${mergeRequestIid}/notes`,
-      void 0,
-      { body }
-    );
-  }
-  listIssues(projectPath2, query = {}) {
-    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/issues`, query);
-  }
-  getIssue(projectPath2, issueIid) {
-    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/issues/${issueIid}`);
-  }
-  createIssue(projectPath2, body) {
-    return this.request("POST", `/projects/${encodeURIComponent(projectPath2)}/issues`, void 0, body);
-  }
-  updateIssue(projectPath2, issueIid, body) {
-    return this.request("PUT", `/projects/${encodeURIComponent(projectPath2)}/issues/${issueIid}`, void 0, body);
-  }
-  deleteIssue(projectPath2, issueIid) {
-    return this.request("DELETE", `/projects/${encodeURIComponent(projectPath2)}/issues/${issueIid}`);
-  }
-  commentOnIssue(projectPath2, issueIid, body) {
-    return this.request("POST", `/projects/${encodeURIComponent(projectPath2)}/issues/${issueIid}/notes`, void 0, {
-      body
-    });
-  }
-  listProjectLabels(projectPath2) {
-    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/labels`);
-  }
-  listMilestones(projectPath2) {
-    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/milestones`);
-  }
-  listProjectUsers(projectPath2) {
-    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/users`);
-  }
-  listPipelines(projectPath2, query = {}) {
-    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/pipelines`, query);
-  }
-  getPipeline(projectPath2, pipelineId) {
-    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/pipelines/${pipelineId}`);
-  }
-  listPipelineJobs(projectPath2, pipelineId) {
-    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/pipelines/${pipelineId}/jobs`);
-  }
-  async getRepositoryFile(projectPath2, filePath, ref) {
-    const raw = await this.request(
-      "GET",
-      `/projects/${encodeURIComponent(projectPath2)}/repository/files/${encodeURIComponent(filePath)}`,
-      { ref }
-    );
-    const response = gitLabRepositoryFileResponseSchema.parse(raw);
-    return {
-      fileName: response.file_name,
-      filePath: response.file_path,
-      content: Buffer.from(response.content, "base64").toString("utf8"),
-      size: response.size
-    };
-  }
-  listRepositoryTree(projectPath2, query = {}) {
-    return this.request("GET", `/projects/${encodeURIComponent(projectPath2)}/repository/tree`, query);
-  }
-  async request(method, path, query, body) {
-    const url = new URL(`${this.baseUrl}/api/v4${path}`);
+function createGitLabRequest(baseUrl, token, fetchImpl = fetch) {
+  const base = baseUrl.replace(/\/+$/, "");
+  return async function request(method, path, query, body) {
+    const url = new URL(`${base}/api/v4${path}`);
     for (const [key, value] of Object.entries(query ?? {})) {
       if (value !== void 0) {
         url.searchParams.set(key, value);
       }
     }
-    const headers = { "PRIVATE-TOKEN": this.token };
+    const headers = { "PRIVATE-TOKEN": token };
     if (body !== void 0) {
       headers["content-type"] = "application/json";
     }
-    const response = await this.fetchImpl(url.toString(), {
+    const response = await fetchImpl(url.toString(), {
       method,
       headers,
       body: body !== void 0 ? JSON.stringify(body) : void 0
@@ -7598,15 +7497,34 @@ var GitLabClient = class {
       throw new GitLabNotFoundError(`GitLab resource not found: ${method} ${path}`);
     }
     if (!response.ok) {
-      const text = redactSecret(await response.text(), this.token);
+      const text = redactSecret(await response.text(), token);
       throw new Error(`GitLab request failed with ${response.status}: ${text}`);
     }
     if (response.status === 204) {
       return null;
     }
     return response.json();
+  };
+}
+
+// src/mcp.ts
+function defineTool(name, description, inputSchema, handler) {
+  return {
+    name,
+    description,
+    inputSchema,
+    handler: async (args) => handler(external_exports.object(inputSchema).parse(args))
+  };
+}
+function registerTools(server, tools) {
+  for (const tool of tools) {
+    server.registerTool(
+      tool.name,
+      { description: tool.description, inputSchema: tool.inputSchema },
+      (args) => tool.handler(args)
+    );
   }
-};
+}
 
 // src/util/matches-pattern.ts
 function matchesPattern(value, pattern) {
@@ -7619,28 +7537,33 @@ function matchesPattern(value, pattern) {
 
 // src/policy.ts
 var permissionByTool = {
-  list_branches: (project) => project.permissions.branches.list,
-  get_branch: (project) => project.permissions.branches.get,
-  create_branch: (project) => project.permissions.branches.create,
-  list_merge_requests: (project) => project.permissions.mergeRequests.list,
-  get_merge_request: (project) => project.permissions.mergeRequests.get,
-  create_merge_request: (project) => project.permissions.mergeRequests.create,
-  comment_on_merge_request: (project) => project.permissions.mergeRequests.comment,
-  list_issues: (project) => project.permissions.issues.list,
-  get_issue: (project) => project.permissions.issues.get,
-  create_issue: (project) => project.permissions.issues.create,
-  update_issue: (project) => project.permissions.issues.update,
-  delete_issue: (project) => project.permissions.issues.delete,
-  comment_on_issue: (project) => project.permissions.issues.comment,
-  list_project_labels: (project) => project.permissions.metadata.labels,
-  list_milestones: (project) => project.permissions.metadata.milestones,
-  list_project_users: (project) => project.permissions.metadata.users,
-  list_pipelines: (project) => project.permissions.pipelines.list,
-  get_pipeline: (project) => project.permissions.pipelines.get,
-  list_pipeline_jobs: (project) => project.permissions.pipelines.jobs,
-  get_repository_file: (project) => project.permissions.repository.readFiles,
-  list_repository_tree: (project) => project.permissions.repository.readTree
+  list_branches: (p) => p.permissions.branches.list,
+  get_branch: (p) => p.permissions.branches.get,
+  create_branch: (p) => p.permissions.branches.create,
+  list_merge_requests: (p) => p.permissions.mergeRequests.list,
+  get_merge_request: (p) => p.permissions.mergeRequests.get,
+  create_merge_request: (p) => p.permissions.mergeRequests.create,
+  comment_on_merge_request: (p) => p.permissions.mergeRequests.comment,
+  list_merge_request_comments: (p) => p.permissions.mergeRequests.get,
+  get_merge_request_comment: (p) => p.permissions.mergeRequests.get,
+  list_issues: (p) => p.permissions.issues.list,
+  get_issue: (p) => p.permissions.issues.get,
+  create_issue: (p) => p.permissions.issues.create,
+  update_issue: (p) => p.permissions.issues.update,
+  delete_issue: (p) => p.permissions.issues.delete,
+  comment_on_issue: (p) => p.permissions.issues.comment,
+  list_issue_comments: (p) => p.permissions.issues.get,
+  get_issue_comment: (p) => p.permissions.issues.get,
+  list_project_labels: (p) => p.permissions.metadata.labels,
+  list_milestones: (p) => p.permissions.metadata.milestones,
+  list_project_users: (p) => p.permissions.metadata.users,
+  list_pipelines: (p) => p.permissions.pipelines.list,
+  get_pipeline: (p) => p.permissions.pipelines.get,
+  list_pipeline_jobs: (p) => p.permissions.pipelines.jobs,
+  get_repository_file: (p) => p.permissions.repository.readFiles,
+  list_repository_tree: (p) => p.permissions.repository.readTree
 };
+var toolNames = Object.keys(permissionByTool);
 function isAllowed(config, input) {
   const project = config.projects.find((candidate) => candidate.path === input.projectPath);
   if (!project) {
@@ -7697,36 +7620,32 @@ function pickStringQuery(args, keys) {
 // src/tools/shared.ts
 var projectPath = external_exports.string().min(1);
 var optionalString = external_exports.string().min(1).optional();
-var optionalNumberArray = external_exports.array(external_exports.number().int().positive()).optional();
 var optionalStringArray = external_exports.array(external_exports.string().min(1)).optional();
+var optionalNumberArray = external_exports.array(external_exports.number().int().positive()).optional();
 function id() {
   return external_exports.number().int().positive();
 }
+function projectApiPath(project) {
+  return `/projects/${encodeURIComponent(project)}`;
+}
 function json(value) {
   return {
-    content: [
-      {
-        type: "text",
-        text: JSON.stringify(value, null, 2)
-      }
-    ]
-  };
-}
-function defineTool(name, description, inputSchema, handler) {
-  return {
-    name,
-    description,
-    inputSchema,
-    handler: async (args) => handler(external_exports.object(inputSchema).parse(args))
+    content: [{ type: "text", text: JSON.stringify(value, null, 2) }]
   };
 }
 
 // src/tools/branches.ts
-function createBranchTools({ config, gitlab }) {
+function createBranchTools({ config, request }) {
   return [
     defineTool("list_branches", "List repository branches.", { projectPath, search: optionalString }, async (args) => {
       assertAllowed(config, { projectPath: args.projectPath, tool: "list_branches" });
-      return json(await gitlab.listBranches(args.projectPath, pickStringQuery(args, ["search"])));
+      return json(
+        await request(
+          "GET",
+          `${projectApiPath(args.projectPath)}/repository/branches`,
+          pickStringQuery(args, ["search"])
+        )
+      );
     }),
     defineTool(
       "get_branch",
@@ -7734,7 +7653,12 @@ function createBranchTools({ config, gitlab }) {
       { projectPath, branchName: external_exports.string().min(1) },
       async (args) => {
         assertAllowed(config, { projectPath: args.projectPath, tool: "get_branch" });
-        return json(await gitlab.getBranch(args.projectPath, args.branchName));
+        return json(
+          await request(
+            "GET",
+            `${projectApiPath(args.projectPath)}/repository/branches/${encodeURIComponent(args.branchName)}`
+          )
+        );
       }
     ),
     defineTool(
@@ -7742,12 +7666,72 @@ function createBranchTools({ config, gitlab }) {
       "Create a non-protected repository branch.",
       { projectPath, branchName: external_exports.string().min(1), ref: external_exports.string().min(1) },
       async (args) => {
-        assertAllowed(config, {
-          projectPath: args.projectPath,
-          tool: "create_branch",
-          branchName: args.branchName
-        });
-        return json(await gitlab.createBranch(args.projectPath, args.branchName, args.ref));
+        assertAllowed(config, { projectPath: args.projectPath, tool: "create_branch", branchName: args.branchName });
+        return json(
+          await request("POST", `${projectApiPath(args.projectPath)}/repository/branches`, void 0, {
+            branch: args.branchName,
+            ref: args.ref
+          })
+        );
+      }
+    )
+  ];
+}
+
+// src/tools/comments.ts
+function createCommentTools({ config, request }) {
+  return [
+    defineTool(
+      "list_issue_comments",
+      "List all comments on an issue, including system notes.",
+      { projectPath, issueIid: id() },
+      async (args) => {
+        assertAllowed(config, { projectPath: args.projectPath, tool: "list_issue_comments" });
+        return json(
+          await request("GET", `${projectApiPath(args.projectPath)}/issues/${args.issueIid}/notes`)
+        );
+      }
+    ),
+    defineTool(
+      "get_issue_comment",
+      "Get a single comment on an issue by note ID.",
+      { projectPath, issueIid: id(), noteId: id() },
+      async (args) => {
+        assertAllowed(config, { projectPath: args.projectPath, tool: "get_issue_comment" });
+        return json(
+          await request(
+            "GET",
+            `${projectApiPath(args.projectPath)}/issues/${args.issueIid}/notes/${args.noteId}`
+          )
+        );
+      }
+    ),
+    defineTool(
+      "list_merge_request_comments",
+      "List all comments on a merge request, including system notes.",
+      { projectPath, mergeRequestIid: id() },
+      async (args) => {
+        assertAllowed(config, { projectPath: args.projectPath, tool: "list_merge_request_comments" });
+        return json(
+          await request(
+            "GET",
+            `${projectApiPath(args.projectPath)}/merge_requests/${args.mergeRequestIid}/notes`
+          )
+        );
+      }
+    ),
+    defineTool(
+      "get_merge_request_comment",
+      "Get a single comment on a merge request by note ID.",
+      { projectPath, mergeRequestIid: id(), noteId: id() },
+      async (args) => {
+        assertAllowed(config, { projectPath: args.projectPath, tool: "get_merge_request_comment" });
+        return json(
+          await request(
+            "GET",
+            `${projectApiPath(args.projectPath)}/merge_requests/${args.mergeRequestIid}/notes/${args.noteId}`
+          )
+        );
       }
     )
   ];
@@ -7765,7 +7749,7 @@ var issueInputSchema = {
   milestoneId: external_exports.number().int().positive().optional(),
   stateEvent: external_exports.enum(["close", "reopen"]).optional()
 };
-function createIssueTools({ config, gitlab }) {
+function createIssueTools({ config, request }) {
   return [
     defineTool(
       "list_issues",
@@ -7773,16 +7757,24 @@ function createIssueTools({ config, gitlab }) {
       { projectPath, state: optionalString, labels: optionalString, search: optionalString },
       async (args) => {
         assertAllowed(config, { projectPath: args.projectPath, tool: "list_issues" });
-        return json(await gitlab.listIssues(args.projectPath, pickStringQuery(args, ["state", "labels", "search"])));
+        return json(
+          await request(
+            "GET",
+            `${projectApiPath(args.projectPath)}/issues`,
+            pickStringQuery(args, ["state", "labels", "search"])
+          )
+        );
       }
     ),
     defineTool("get_issue", "Get one issue.", { projectPath, issueIid: id() }, async (args) => {
       assertAllowed(config, { projectPath: args.projectPath, tool: "get_issue" });
-      return json(await gitlab.getIssue(args.projectPath, args.issueIid));
+      return json(await request("GET", `${projectApiPath(args.projectPath)}/issues/${args.issueIid}`));
     }),
     defineTool("create_issue", "Create an issue.", issueInputSchema, async (args) => {
       assertAllowed(config, { projectPath: args.projectPath, tool: "create_issue" });
-      return json(await gitlab.createIssue(args.projectPath, issuePayload(args)));
+      return json(
+        await request("POST", `${projectApiPath(args.projectPath)}/issues`, void 0, issueBody(args))
+      );
     }),
     defineTool(
       "update_issue",
@@ -7790,7 +7782,14 @@ function createIssueTools({ config, gitlab }) {
       { ...issueInputSchema, issueIid: id() },
       async (args) => {
         assertAllowed(config, { projectPath: args.projectPath, tool: "update_issue" });
-        return json(await gitlab.updateIssue(args.projectPath, args.issueIid, issuePayload(args)));
+        return json(
+          await request(
+            "PUT",
+            `${projectApiPath(args.projectPath)}/issues/${args.issueIid}`,
+            void 0,
+            issueBody(args)
+          )
+        );
       }
     ),
     defineTool(
@@ -7799,7 +7798,7 @@ function createIssueTools({ config, gitlab }) {
       { projectPath, issueIid: id() },
       async (args) => {
         assertAllowed(config, { projectPath: args.projectPath, tool: "delete_issue" });
-        return json(await gitlab.deleteIssue(args.projectPath, args.issueIid));
+        return json(await request("DELETE", `${projectApiPath(args.projectPath)}/issues/${args.issueIid}`));
       }
     ),
     defineTool(
@@ -7808,12 +7807,16 @@ function createIssueTools({ config, gitlab }) {
       { projectPath, issueIid: id(), body: external_exports.string().min(1) },
       async (args) => {
         assertAllowed(config, { projectPath: args.projectPath, tool: "comment_on_issue" });
-        return json(await gitlab.commentOnIssue(args.projectPath, args.issueIid, args.body));
+        return json(
+          await request("POST", `${projectApiPath(args.projectPath)}/issues/${args.issueIid}/notes`, void 0, {
+            body: args.body
+          })
+        );
       }
     )
   ];
 }
-function issuePayload(args) {
+function issueBody(args) {
   return {
     title: args.title,
     description: args.description,
@@ -7827,7 +7830,7 @@ function issuePayload(args) {
 }
 
 // src/tools/merge-requests.ts
-function createMergeRequestTools({ config, gitlab }) {
+function createMergeRequestTools({ config, request }) {
   return [
     defineTool(
       "list_merge_requests",
@@ -7843,7 +7846,7 @@ function createMergeRequestTools({ config, gitlab }) {
       async (args) => {
         assertAllowed(config, { projectPath: args.projectPath, tool: "list_merge_requests" });
         return json(
-          await gitlab.listMergeRequests(args.projectPath, {
+          await request("GET", `${projectApiPath(args.projectPath)}/merge_requests`, {
             state: args.state,
             author_username: args.authorUsername,
             source_branch: args.sourceBranch,
@@ -7855,7 +7858,12 @@ function createMergeRequestTools({ config, gitlab }) {
     ),
     defineTool("get_merge_request", "Get one merge request.", { projectPath, mergeRequestIid: id() }, async (args) => {
       assertAllowed(config, { projectPath: args.projectPath, tool: "get_merge_request" });
-      return json(await gitlab.getMergeRequest(args.projectPath, args.mergeRequestIid));
+      return json(
+        await request(
+          "GET",
+          `${projectApiPath(args.projectPath)}/merge_requests/${args.mergeRequestIid}`
+        )
+      );
     }),
     defineTool(
       "create_merge_request",
@@ -7889,7 +7897,14 @@ function createMergeRequestTools({ config, gitlab }) {
           reviewer_ids: args.reviewerIds,
           remove_source_branch: args.removeSourceBranch
         };
-        return json(await gitlab.createMergeRequest(args.projectPath, body));
+        return json(
+          await request(
+            "POST",
+            `${projectApiPath(args.projectPath)}/merge_requests`,
+            void 0,
+            body
+          )
+        );
       }
     ),
     defineTool(
@@ -7898,32 +7913,39 @@ function createMergeRequestTools({ config, gitlab }) {
       { projectPath, mergeRequestIid: id(), body: external_exports.string().min(1) },
       async (args) => {
         assertAllowed(config, { projectPath: args.projectPath, tool: "comment_on_merge_request" });
-        return json(await gitlab.commentOnMergeRequest(args.projectPath, args.mergeRequestIid, args.body));
+        return json(
+          await request(
+            "POST",
+            `${projectApiPath(args.projectPath)}/merge_requests/${args.mergeRequestIid}/notes`,
+            void 0,
+            { body: args.body }
+          )
+        );
       }
     )
   ];
 }
 
 // src/tools/metadata.ts
-function createMetadataTools({ config, gitlab }) {
+function createMetadataTools({ config, request }) {
   return [
     defineTool("list_project_labels", "List project labels.", { projectPath }, async (args) => {
       assertAllowed(config, { projectPath: args.projectPath, tool: "list_project_labels" });
-      return json(await gitlab.listProjectLabels(args.projectPath));
+      return json(await request("GET", `${projectApiPath(args.projectPath)}/labels`));
     }),
     defineTool("list_milestones", "List project milestones.", { projectPath }, async (args) => {
       assertAllowed(config, { projectPath: args.projectPath, tool: "list_milestones" });
-      return json(await gitlab.listMilestones(args.projectPath));
+      return json(await request("GET", `${projectApiPath(args.projectPath)}/milestones`));
     }),
     defineTool("list_project_users", "List project users.", { projectPath }, async (args) => {
       assertAllowed(config, { projectPath: args.projectPath, tool: "list_project_users" });
-      return json(await gitlab.listProjectUsers(args.projectPath));
+      return json(await request("GET", `${projectApiPath(args.projectPath)}/users`));
     })
   ];
 }
 
 // src/tools/pipelines.ts
-function createPipelineTools({ config, gitlab }) {
+function createPipelineTools({ config, request }) {
   return [
     defineTool(
       "list_pipelines",
@@ -7931,22 +7953,32 @@ function createPipelineTools({ config, gitlab }) {
       { projectPath, ref: optionalString, status: optionalString, source: optionalString },
       async (args) => {
         assertAllowed(config, { projectPath: args.projectPath, tool: "list_pipelines" });
-        return json(await gitlab.listPipelines(args.projectPath, pickStringQuery(args, ["ref", "status", "source"])));
+        return json(
+          await request(
+            "GET",
+            `${projectApiPath(args.projectPath)}/pipelines`,
+            pickStringQuery(args, ["ref", "status", "source"])
+          )
+        );
       }
     ),
     defineTool("get_pipeline", "Get one pipeline.", { projectPath, pipelineId: id() }, async (args) => {
       assertAllowed(config, { projectPath: args.projectPath, tool: "get_pipeline" });
-      return json(await gitlab.getPipeline(args.projectPath, args.pipelineId));
+      return json(
+        await request("GET", `${projectApiPath(args.projectPath)}/pipelines/${args.pipelineId}`)
+      );
     }),
     defineTool("list_pipeline_jobs", "List jobs for a pipeline.", { projectPath, pipelineId: id() }, async (args) => {
       assertAllowed(config, { projectPath: args.projectPath, tool: "list_pipeline_jobs" });
-      return json(await gitlab.listPipelineJobs(args.projectPath, args.pipelineId));
+      return json(
+        await request("GET", `${projectApiPath(args.projectPath)}/pipelines/${args.pipelineId}/jobs`)
+      );
     })
   ];
 }
 
 // src/tools/repository.ts
-function createRepositoryTools({ config, gitlab }) {
+function createRepositoryTools({ config, request }) {
   return [
     defineTool(
       "get_repository_file",
@@ -7954,12 +7986,22 @@ function createRepositoryTools({ config, gitlab }) {
       { projectPath, filePath: external_exports.string().min(1), ref: external_exports.string().min(1) },
       async (args) => {
         assertAllowed(config, { projectPath: args.projectPath, tool: "get_repository_file" });
-        const file = await gitlab.getRepositoryFile(args.projectPath, args.filePath, args.ref);
+        const raw = await request(
+          "GET",
+          `${projectApiPath(args.projectPath)}/repository/files/${encodeURIComponent(args.filePath)}`,
+          { ref: args.ref }
+        );
         assertAllowed(config, {
           projectPath: args.projectPath,
           tool: "get_repository_file",
-          fileSizeBytes: file.size
+          fileSizeBytes: raw.size
         });
+        const file = {
+          fileName: raw.file_name,
+          filePath: raw.file_path,
+          content: Buffer.from(raw.content, "base64").toString("utf8"),
+          size: raw.size
+        };
         return json(file);
       }
     ),
@@ -7970,7 +8012,7 @@ function createRepositoryTools({ config, gitlab }) {
       async (args) => {
         assertAllowed(config, { projectPath: args.projectPath, tool: "list_repository_tree" });
         return json(
-          await gitlab.listRepositoryTree(args.projectPath, {
+          await request("GET", `${projectApiPath(args.projectPath)}/repository/tree`, {
             ref: args.ref,
             path: args.path,
             recursive: args.recursive === void 0 ? void 0 : String(args.recursive)
@@ -7981,11 +8023,12 @@ function createRepositoryTools({ config, gitlab }) {
   ];
 }
 
-// src/tools.ts
-function createSafeGlabTools(config, gitlab) {
-  const context = { config, gitlab };
+// src/tools/index.ts
+function createSafeGlabTools(config, request) {
+  const context = { config, request };
   return [
     ...createBranchTools(context),
+    ...createCommentTools(context),
     ...createMergeRequestTools(context),
     ...createIssueTools(context),
     ...createMetadataTools(context),
@@ -7993,37 +8036,19 @@ function createSafeGlabTools(config, gitlab) {
     ...createRepositoryTools(context)
   ];
 }
-function registerSafeGlabTools(server, config, gitlab) {
-  for (const definition of createSafeGlabTools(config, gitlab)) {
-    server.registerTool(
-      definition.name,
-      {
-        description: definition.description,
-        inputSchema: definition.inputSchema
-      },
-      (args) => definition.handler(args)
-    );
-  }
-}
 
 // src/index.ts
-function createServer(config, gitlab) {
-  const server = new McpServer({
-    name: "safe-glab-mcp",
-    version: "0.1.0"
-  });
-  registerSafeGlabTools(server, config, gitlab);
+function createServer(config, request) {
+  const server = new McpServer({ name: "safe-glab-mcp", version: "0.1.0" });
+  registerTools(server, createSafeGlabTools(config, request));
   return server;
 }
 async function main(argv = process.argv, env = process.env) {
   const configPath = readConfigPath(argv, env);
   initPluginConfig(configPath, env);
   const config = await loadConfig(configPath, env);
-  const gitlab = new GitLabClient({
-    baseUrl: config.gitlab.baseUrl,
-    token: config.gitlab.token
-  });
-  const server = createServer(config, gitlab);
+  const request = createGitLabRequest(config.gitlab.baseUrl, config.gitlab.token);
+  const server = createServer(config, request);
   await server.connect(new StdioServerTransport());
 }
 function initPluginConfig(configPath, env) {
