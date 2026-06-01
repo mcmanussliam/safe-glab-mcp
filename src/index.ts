@@ -4,15 +4,20 @@ import { dirname, join } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig, type SafeGlabConfig } from "./config.js";
-import { GitLabClient } from "./gitlab.js";
-import { type GitLabClientContract, registerSafeGlabTools } from "./tools.js";
+import { createGitLabRequest, type GitLabRequest } from "./gitlab/request.js";
+import { registerTools } from "./mcp.js";
+import { createSafeGlabTools } from "./tools/index.js";
 
-export function createServer(config: SafeGlabConfig, gitlab: GitLabClientContract): McpServer {
-  const server = new McpServer({
-    name: "safe-glab-mcp",
-    version: "0.1.0",
-  });
-  registerSafeGlabTools(server, config, gitlab);
+/**
+ * Creates a configured MCP server with all safe-glab tools registered.
+ * Does not connect a transport — call `server.connect()` separately.
+ *
+ * @param config - The loaded safe-glab configuration.
+ * @param request - An authenticated GitLab request function.
+ */
+export function createServer(config: SafeGlabConfig, request: GitLabRequest): McpServer {
+  const server = new McpServer({ name: "safe-glab-mcp", version: "0.1.0" });
+  registerTools(server, createSafeGlabTools(config, request));
   return server;
 }
 
@@ -22,12 +27,8 @@ export async function main(argv = process.argv, env = process.env): Promise<void
   initPluginConfig(configPath, env);
   const config = await loadConfig(configPath, env);
 
-  const gitlab = new GitLabClient({
-    baseUrl: config.gitlab.baseUrl,
-    token: config.gitlab.token,
-  });
-
-  const server = createServer(config, gitlab);
+  const request = createGitLabRequest(config.gitlab.baseUrl, config.gitlab.token);
+  const server = createServer(config, request);
   await server.connect(new StdioServerTransport());
 }
 
@@ -60,7 +61,6 @@ function readConfigPath(argv: string[], env: NodeJS.ProcessEnv): string {
     if (!value) {
       throw new Error("`--config` requires a path");
     }
-
     return value;
   }
 

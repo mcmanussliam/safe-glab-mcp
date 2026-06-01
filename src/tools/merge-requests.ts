@@ -1,19 +1,19 @@
 import { z } from "zod";
-import type { CreateMergeRequestInput } from "../gitlab/types.js";
+import type { CreateMergeRequestInput, GitLabMergeRequest } from "../gitlab/types.js";
+import { defineTool, type ToolDefinition } from "../mcp.js";
 import { assertAllowed } from "../policy.js";
 import {
-  defineTool,
   id,
   json,
   optionalNumberArray,
   optionalString,
   optionalStringArray,
+  projectApiPath,
   projectPath,
   type ToolContext,
-  type ToolDefinition,
 } from "./shared.js";
 
-export function createMergeRequestTools({ config, gitlab }: ToolContext): ToolDefinition[] {
+export function createMergeRequestTools({ config, request }: ToolContext): ToolDefinition[] {
   return [
     defineTool(
       "list_merge_requests",
@@ -28,9 +28,8 @@ export function createMergeRequestTools({ config, gitlab }: ToolContext): ToolDe
       },
       async (args) => {
         assertAllowed(config, { projectPath: args.projectPath, tool: "list_merge_requests" });
-
         return json(
-          await gitlab.listMergeRequests(args.projectPath, {
+          await request<GitLabMergeRequest[]>("GET", `${projectApiPath(args.projectPath)}/merge_requests`, {
             state: args.state,
             author_username: args.authorUsername,
             source_branch: args.sourceBranch,
@@ -43,8 +42,12 @@ export function createMergeRequestTools({ config, gitlab }: ToolContext): ToolDe
 
     defineTool("get_merge_request", "Get one merge request.", { projectPath, mergeRequestIid: id() }, async (args) => {
       assertAllowed(config, { projectPath: args.projectPath, tool: "get_merge_request" });
-
-      return json(await gitlab.getMergeRequest(args.projectPath, args.mergeRequestIid));
+      return json(
+        await request<GitLabMergeRequest>(
+          "GET",
+          `${projectApiPath(args.projectPath)}/merge_requests/${args.mergeRequestIid}`,
+        ),
+      );
     }),
 
     defineTool(
@@ -81,7 +84,14 @@ export function createMergeRequestTools({ config, gitlab }: ToolContext): ToolDe
           remove_source_branch: args.removeSourceBranch,
         };
 
-        return json(await gitlab.createMergeRequest(args.projectPath, body));
+        return json(
+          await request<GitLabMergeRequest>(
+            "POST",
+            `${projectApiPath(args.projectPath)}/merge_requests`,
+            undefined,
+            body,
+          ),
+        );
       },
     ),
 
@@ -91,8 +101,14 @@ export function createMergeRequestTools({ config, gitlab }: ToolContext): ToolDe
       { projectPath, mergeRequestIid: id(), body: z.string().min(1) },
       async (args) => {
         assertAllowed(config, { projectPath: args.projectPath, tool: "comment_on_merge_request" });
-
-        return json(await gitlab.commentOnMergeRequest(args.projectPath, args.mergeRequestIid, args.body));
+        return json(
+          await request(
+            "POST",
+            `${projectApiPath(args.projectPath)}/merge_requests/${args.mergeRequestIid}/notes`,
+            undefined,
+            { body: args.body },
+          ),
+        );
       },
     ),
   ];

@@ -1,12 +1,13 @@
 import { describe, expect, test, vi } from "vitest";
 import type { SafeGlabConfig } from "../src/config.js";
-import { createSafeGlabTools, expectedToolNames } from "../src/tools.js";
+import { toolNames } from "../src/policy.js";
+import { createSafeGlabTools } from "../src/tools/index.js";
 
 function config(): SafeGlabConfig {
   return {
     gitlab: {
       baseUrl: "https://gitlab.example.com",
-      tokenEnv: "SAFE_GLAB_TOKEN",
+      tokenKey: "SAFE_GLAB_TOKEN",
       token: "secret-token",
     },
     defaults: {
@@ -30,49 +31,22 @@ function config(): SafeGlabConfig {
   };
 }
 
-function client() {
-  return {
-    listBranches: vi.fn().mockResolvedValue([{ name: "main" }]),
-    getBranch: vi.fn(),
-    createBranch: vi.fn(),
-    listMergeRequests: vi.fn(),
-    getMergeRequest: vi.fn(),
-    createMergeRequest: vi.fn(),
-    commentOnMergeRequest: vi.fn(),
-    listIssues: vi.fn(),
-    getIssue: vi.fn(),
-    createIssue: vi.fn(),
-    updateIssue: vi.fn(),
-    deleteIssue: vi.fn(),
-    commentOnIssue: vi.fn(),
-    listProjectLabels: vi.fn(),
-    listMilestones: vi.fn(),
-    listProjectUsers: vi.fn(),
-    listPipelines: vi.fn(),
-    getPipeline: vi.fn(),
-    listPipelineJobs: vi.fn(),
-    getRepositoryFile: vi
-      .fn()
-      .mockResolvedValue({ fileName: "README.md", filePath: "README.md", content: "hello", size: 5 }),
-    listRepositoryTree: vi.fn(),
-  };
-}
-
 describe("safe glab tools", () => {
   test("registers the expected explicit tool surface and no raw command/API tools", () => {
-    const tools = createSafeGlabTools(config(), client());
+    const request = vi.fn();
+    const tools = createSafeGlabTools(config(), request);
     const names = tools.map((tool) => tool.name).sort();
 
-    expect(names).toEqual([...expectedToolNames].sort());
+    expect(names).toEqual([...toolNames].sort());
     expect(names).not.toContain("raw_api");
     expect(names).not.toContain("run_glab");
     expect(names).not.toContain("delete_branch");
     expect(names).not.toContain("delete_project");
   });
 
-  test("calls the GitLab client when policy allows the tool", async () => {
-    const gitlab = client();
-    const tools = createSafeGlabTools(config(), gitlab);
+  test("calls the GitLab API when policy allows the tool", async () => {
+    const request = vi.fn().mockResolvedValue([{ name: "main" }]);
+    const tools = createSafeGlabTools(config(), request);
     const listBranches = tools.find((tool) => tool.name === "list_branches");
     if (!listBranches) {
       throw new Error("Expected list_branches tool to be registered");
@@ -80,7 +54,7 @@ describe("safe glab tools", () => {
 
     const result = await listBranches.handler({ projectPath: "platform/api", search: "main" });
 
-    expect(gitlab.listBranches).toHaveBeenCalledWith("platform/api", { search: "main" });
+    expect(request).toHaveBeenCalledWith("GET", "/projects/platform%2Fapi/repository/branches", { search: "main" });
     expect(result.content[0]?.text).toContain('"main"');
   });
 });

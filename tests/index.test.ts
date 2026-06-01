@@ -1,13 +1,13 @@
 import { describe, expect, test, vi } from "vitest";
 import type { SafeGlabConfig } from "../src/config.js";
 import { createServer } from "../src/index.js";
-import { expectedToolNames } from "../src/tools.js";
+import { toolNames } from "../src/policy.js";
 
 function config(): SafeGlabConfig {
   return {
     gitlab: {
       baseUrl: "https://gitlab.example.com",
-      tokenEnv: "SAFE_GLAB_TOKEN",
+      tokenKey: "SAFE_GLAB_TOKEN",
       token: "secret-token",
     },
     defaults: {
@@ -33,34 +33,12 @@ function config(): SafeGlabConfig {
 
 describe("createServer", () => {
   test("constructs an MCP server and registers safe GitLab tools without connecting transport", () => {
-    const server = createServer(config(), {
-      listBranches: vi.fn(),
-      getBranch: vi.fn(),
-      createBranch: vi.fn(),
-      listMergeRequests: vi.fn(),
-      getMergeRequest: vi.fn(),
-      createMergeRequest: vi.fn(),
-      commentOnMergeRequest: vi.fn(),
-      listIssues: vi.fn(),
-      getIssue: vi.fn(),
-      createIssue: vi.fn(),
-      updateIssue: vi.fn(),
-      deleteIssue: vi.fn(),
-      commentOnIssue: vi.fn(),
-      listProjectLabels: vi.fn(),
-      listMilestones: vi.fn(),
-      listProjectUsers: vi.fn(),
-      listPipelines: vi.fn(),
-      getPipeline: vi.fn(),
-      listPipelineJobs: vi.fn(),
-      getRepositoryFile: vi.fn(),
-      listRepositoryTree: vi.fn(),
-    });
+    const server = createServer(config(), vi.fn());
 
     const registeredTools = Object.keys(
       (server as unknown as { _registeredTools: Record<string, unknown> })._registeredTools,
     );
-    expect(registeredTools.sort()).toEqual([...expectedToolNames].sort());
+    expect(registeredTools.sort()).toEqual([...toolNames].sort());
     expect(server.isConnected()).toBe(false);
   });
 });

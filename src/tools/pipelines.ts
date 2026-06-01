@@ -1,8 +1,10 @@
+import type { GitLabJob, GitLabPipeline } from "../gitlab/types.js";
+import { defineTool, type ToolDefinition } from "../mcp.js";
 import { assertAllowed } from "../policy.js";
 import { pickStringQuery } from "../util/pick-string-query.js";
-import { defineTool, id, json, optionalString, projectPath, type ToolContext, type ToolDefinition } from "./shared.js";
+import { id, json, optionalString, projectApiPath, projectPath, type ToolContext } from "./shared.js";
 
-export function createPipelineTools({ config, gitlab }: ToolContext): ToolDefinition[] {
+export function createPipelineTools({ config, request }: ToolContext): ToolDefinition[] {
   return [
     defineTool(
       "list_pipelines",
@@ -10,21 +12,28 @@ export function createPipelineTools({ config, gitlab }: ToolContext): ToolDefini
       { projectPath, ref: optionalString, status: optionalString, source: optionalString },
       async (args) => {
         assertAllowed(config, { projectPath: args.projectPath, tool: "list_pipelines" });
-
-        return json(await gitlab.listPipelines(args.projectPath, pickStringQuery(args, ["ref", "status", "source"])));
+        return json(
+          await request<GitLabPipeline[]>(
+            "GET",
+            `${projectApiPath(args.projectPath)}/pipelines`,
+            pickStringQuery(args, ["ref", "status", "source"]),
+          ),
+        );
       },
     ),
 
     defineTool("get_pipeline", "Get one pipeline.", { projectPath, pipelineId: id() }, async (args) => {
       assertAllowed(config, { projectPath: args.projectPath, tool: "get_pipeline" });
-
-      return json(await gitlab.getPipeline(args.projectPath, args.pipelineId));
+      return json(
+        await request<GitLabPipeline>("GET", `${projectApiPath(args.projectPath)}/pipelines/${args.pipelineId}`),
+      );
     }),
 
     defineTool("list_pipeline_jobs", "List jobs for a pipeline.", { projectPath, pipelineId: id() }, async (args) => {
       assertAllowed(config, { projectPath: args.projectPath, tool: "list_pipeline_jobs" });
-
-      return json(await gitlab.listPipelineJobs(args.projectPath, args.pipelineId));
+      return json(
+        await request<GitLabJob[]>("GET", `${projectApiPath(args.projectPath)}/pipelines/${args.pipelineId}/jobs`),
+      );
     }),
   ];
 }

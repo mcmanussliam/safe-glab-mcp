@@ -1,8 +1,10 @@
 import { z } from "zod";
+import type { GitLabRepositoryFile, GitLabRepositoryFileRaw, GitLabTreeEntry } from "../gitlab/types.js";
+import { defineTool, type ToolDefinition } from "../mcp.js";
 import { assertAllowed } from "../policy.js";
-import { defineTool, json, optionalString, projectPath, type ToolContext, type ToolDefinition } from "./shared.js";
+import { json, optionalString, projectApiPath, projectPath, type ToolContext } from "./shared.js";
 
-export function createRepositoryTools({ config, gitlab }: ToolContext): ToolDefinition[] {
+export function createRepositoryTools({ config, request }: ToolContext): ToolDefinition[] {
   return [
     defineTool(
       "get_repository_file",
@@ -11,12 +13,24 @@ export function createRepositoryTools({ config, gitlab }: ToolContext): ToolDefi
       async (args) => {
         assertAllowed(config, { projectPath: args.projectPath, tool: "get_repository_file" });
 
-        const file = await gitlab.getRepositoryFile(args.projectPath, args.filePath, args.ref);
+        const raw = await request<GitLabRepositoryFileRaw>(
+          "GET",
+          `${projectApiPath(args.projectPath)}/repository/files/${encodeURIComponent(args.filePath)}`,
+          { ref: args.ref },
+        );
+
         assertAllowed(config, {
           projectPath: args.projectPath,
           tool: "get_repository_file",
-          fileSizeBytes: file.size,
+          fileSizeBytes: raw.size,
         });
+
+        const file: GitLabRepositoryFile = {
+          fileName: raw.file_name,
+          filePath: raw.file_path,
+          content: Buffer.from(raw.content, "base64").toString("utf8"),
+          size: raw.size,
+        };
 
         return json(file);
       },
@@ -28,9 +42,8 @@ export function createRepositoryTools({ config, gitlab }: ToolContext): ToolDefi
       { projectPath, ref: z.string().min(1), path: optionalString, recursive: z.boolean().optional() },
       async (args) => {
         assertAllowed(config, { projectPath: args.projectPath, tool: "list_repository_tree" });
-
         return json(
-          await gitlab.listRepositoryTree(args.projectPath, {
+          await request<GitLabTreeEntry[]>("GET", `${projectApiPath(args.projectPath)}/repository/tree`, {
             ref: args.ref,
             path: args.path,
             recursive: args.recursive === undefined ? undefined : String(args.recursive),
