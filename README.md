@@ -1,7 +1,3 @@
-<p align="center">
-  <img width="480" height="480" alt="47f738d2cb80b7eb624056db581cf76f65b89dd4 (2)" src="https://github.com/user-attachments/assets/8761b79e-529e-4d30-bdc0-889aec012fe5" />
-</p>
-
 <h1 align="center">Safe GitLab MCP</h1>
 <p align="center">
   GitLab CE has no fine-grained access tokens; your token either has <code>api</code> scope or it doesn't. This Claude plugin enforces per-project, per-operation restrictions that your GitLab instance can't.
@@ -58,8 +54,4 @@ The config is created automatically at `$CLAUDE_PLUGIN_DATA/safe-glab.json` on f
 }
 ```
 
-**4. Restart Claude Code and that's it 🎉**
-
----
-
-Please don't let Claude delete the main branch.
+**4. Restart Claude Code and that's you**
