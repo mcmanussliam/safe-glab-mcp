@@ -7625,6 +7625,8 @@ var optionalNumberArray = external_exports.array(external_exports.number().int()
 function id() {
   return external_exports.number().int().positive();
 }
+var page = external_exports.number().int().positive().optional();
+var perPage = external_exports.number().int().positive().max(100).optional();
 function projectApiPath(project) {
   return `/projects/${encodeURIComponent(project)}`;
 }
@@ -7683,13 +7685,16 @@ function createCommentTools({ config, request }) {
   return [
     defineTool(
       "list_issue_comments",
-      "List all comments on an issue, including system notes.",
-      { projectPath, issueIid: id() },
+      "List comments on an issue, paginated (defaults to GitLab's page size of 20; use page/perPage to fetch more). Set excludeSystem to omit auto-generated system notes.",
+      { projectPath, issueIid: id(), page, perPage, excludeSystem: external_exports.boolean().optional() },
       async (args) => {
         assertAllowed(config, { projectPath: args.projectPath, tool: "list_issue_comments" });
-        return json(
-          await request("GET", `${projectApiPath(args.projectPath)}/issues/${args.issueIid}/notes`)
+        const notes = await request(
+          "GET",
+          `${projectApiPath(args.projectPath)}/issues/${args.issueIid}/notes`,
+          { page: args.page?.toString(), per_page: args.perPage?.toString() }
         );
+        return json(args.excludeSystem ? notes.filter((note) => !note.system) : notes);
       }
     ),
     defineTool(
@@ -7708,16 +7713,16 @@ function createCommentTools({ config, request }) {
     ),
     defineTool(
       "list_merge_request_comments",
-      "List all comments on a merge request, including system notes.",
-      { projectPath, mergeRequestIid: id() },
+      "List comments on a merge request, paginated (defaults to GitLab's page size of 20; use page/perPage to fetch more, e.g. perPage: 100). Set excludeSystem to omit auto-generated system notes and see discussion threads more clearly.",
+      { projectPath, mergeRequestIid: id(), page, perPage, excludeSystem: external_exports.boolean().optional() },
       async (args) => {
         assertAllowed(config, { projectPath: args.projectPath, tool: "list_merge_request_comments" });
-        return json(
-          await request(
-            "GET",
-            `${projectApiPath(args.projectPath)}/merge_requests/${args.mergeRequestIid}/notes`
-          )
+        const notes = await request(
+          "GET",
+          `${projectApiPath(args.projectPath)}/merge_requests/${args.mergeRequestIid}/notes`,
+          { page: args.page?.toString(), per_page: args.perPage?.toString() }
         );
+        return json(args.excludeSystem ? notes.filter((note) => !note.system) : notes);
       }
     ),
     defineTool(
