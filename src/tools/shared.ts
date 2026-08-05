@@ -28,6 +28,12 @@ export function id(): z.ZodNumber {
   return z.number().int().positive();
 }
 
+/** An optional 1-based page number for paginated list endpoints. */
+export const page = z.number().int().positive().optional();
+
+/** An optional page size for paginated list endpoints, capped at GitLab's max of 100. */
+export const perPage = z.number().int().positive().max(100).optional();
+
 /**
  * Returns the `/projects/:encoded` API path prefix for a given project path.
  *
