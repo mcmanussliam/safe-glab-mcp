@@ -7544,6 +7544,7 @@ var permissionByTool = {
   get_merge_request: (p) => p.permissions.mergeRequests.get,
   create_merge_request: (p) => p.permissions.mergeRequests.create,
   comment_on_merge_request: (p) => p.permissions.mergeRequests.comment,
+  comment_on_merge_request_diff: (p) => p.permissions.mergeRequests.comment,
   list_merge_request_comments: (p) => p.permissions.mergeRequests.get,
   get_merge_request_comment: (p) => p.permissions.mergeRequests.get,
   list_issues: (p) => p.permissions.issues.list,
@@ -7924,6 +7925,51 @@ function createMergeRequestTools({ config, request }) {
             `${projectApiPath(args.projectPath)}/merge_requests/${args.mergeRequestIid}/notes`,
             void 0,
             { body: args.body }
+          )
+        );
+      }
+    ),
+    defineTool(
+      "comment_on_merge_request_diff",
+      "Open a resolvable review thread anchored to one line of a merge request's diff - the comment that renders inline beside the code, rather than the unanchored note comment_on_merge_request posts on the MR itself. Use this for review findings so each one sits on the line it is about. The diff SHAs are resolved from the merge request automatically, so only the file and line are needed. The line must fall inside the diff (an added, removed, or nearby context line) or GitLab rejects the position; note that the line numbers are those of the merge request's current head commit, so re-check them after a push.",
+      {
+        projectPath,
+        mergeRequestIid: id(),
+        body: external_exports.string().min(1),
+        filePath: external_exports.string().min(1),
+        line: id(),
+        lineType: external_exports.enum(["new", "old"]).optional(),
+        oldFilePath: optionalString
+      },
+      async (args) => {
+        assertAllowed(config, { projectPath: args.projectPath, tool: "comment_on_merge_request_diff" });
+        const mergeRequest = await request(
+          "GET",
+          `${projectApiPath(args.projectPath)}/merge_requests/${args.mergeRequestIid}`
+        );
+        if (!mergeRequest.diff_refs) {
+          throw new Error(
+            `Merge request !${args.mergeRequestIid} has no diff refs, so no diff line can be commented on`
+          );
+        }
+        const onOldSide = args.lineType === "old";
+        const body = {
+          body: args.body,
+          position: {
+            ...mergeRequest.diff_refs,
+            position_type: "text",
+            new_path: args.filePath,
+            old_path: args.oldFilePath ?? args.filePath,
+            new_line: onOldSide ? void 0 : args.line,
+            old_line: onOldSide ? args.line : void 0
+          }
+        };
+        return json(
+          await request(
+            "POST",
+            `${projectApiPath(args.projectPath)}/merge_requests/${args.mergeRequestIid}/discussions`,
+            void 0,
+            body
           )
         );
       }

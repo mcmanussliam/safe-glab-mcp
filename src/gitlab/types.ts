@@ -57,6 +57,18 @@ export type GitLabMergeRequest = {
   assignees: GitLabUserRef[];
   reviewers: GitLabUserRef[];
   labels: string[];
+  diff_refs: GitLabDiffRefs | null;
+};
+
+/**
+ * The three commits that pin a merge request's current diff. Null on a merge
+ * request GitLab has not finished preparing, and changes whenever the source
+ * branch is pushed to.
+ */
+export type GitLabDiffRefs = {
+  base_sha: string;
+  start_sha: string;
+  head_sha: string;
 };
 
 /** An issue as returned by the Issues API. */
@@ -193,6 +205,38 @@ export type GitLabNote = {
   system: boolean;
   noteable_type: "Issue" | "MergeRequest";
   noteable_iid: number;
+};
+
+/**
+ * A discussion (comment thread) on an issue or merge request as returned by
+ * the Discussions API. Unlike a plain note, a diff-anchored discussion is
+ * resolvable and renders inline against the code it points at.
+ */
+export type GitLabDiscussion = {
+  id: string;
+  individual_note: boolean;
+  notes: GitLabNote[];
+};
+
+/**
+ * The line of a merge request diff that a discussion is anchored to.
+ *
+ * `new_line` addresses the post-image (an added or unchanged line), `old_line`
+ * the pre-image (a removed or unchanged line); exactly one is set for a changed
+ * line. GitLab rejects a position that does not fall inside the diff.
+ */
+export type MergeRequestDiffPosition = GitLabDiffRefs & {
+  position_type: "text";
+  new_path: string;
+  old_path: string;
+  new_line?: number;
+  old_line?: number;
+};
+
+/** Body shape for the Create Merge Request Discussion API endpoint. */
+export type CreateMergeRequestDiscussionInput = {
+  body: string;
+  position: MergeRequestDiffPosition;
 };
 
 /** A decoded repository file with `content` as a UTF-8 string. */

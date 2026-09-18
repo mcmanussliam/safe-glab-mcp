@@ -16,6 +16,7 @@ const permissionByTool = {
   get_merge_request: (p) => p.permissions.mergeRequests.get,
   create_merge_request: (p) => p.permissions.mergeRequests.create,
   comment_on_merge_request: (p) => p.permissions.mergeRequests.comment,
+  comment_on_merge_request_diff: (p) => p.permissions.mergeRequests.comment,
   list_merge_request_comments: (p) => p.permissions.mergeRequests.get,
   get_merge_request_comment: (p) => p.permissions.mergeRequests.get,
   list_issues: (p) => p.permissions.issues.list,
